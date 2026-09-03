@@ -1,0 +1,6 @@
+[Unit]
+Description=Publish OpsPilot demo-api health metric
+
+[Service]
+Type=oneshot
+ExecStart=/opt/opspilot/publish_health_metric.sh

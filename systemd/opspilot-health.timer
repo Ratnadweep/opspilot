@@ -1,0 +1,10 @@
+[Unit]
+Description=Run OpsPilot health check every minute
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=60
+Unit=opspilot-health.service
+
+[Install]
+WantedBy=timers.target

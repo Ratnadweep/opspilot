@@ -1,0 +1,12 @@
+[Unit]
+Description=OpsPilot Demo API
+After=network.target
+
+[Service]
+User=ec2-user
+WorkingDirectory=/opt/opspilot
+ExecStart=/usr/bin/python3 /opt/opspilot/app.py
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

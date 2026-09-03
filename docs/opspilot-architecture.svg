@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#eef4fb"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#355b85"/>
+    </marker>
+    <marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e87922"/>
+    </marker>
+    <style>
+      .title{font:700 38px Arial,sans-serif;fill:#12233f}.sub{font:18px Arial,sans-serif;fill:#52647a}
+      .lane{font:700 17px Arial,sans-serif;letter-spacing:1px;fill:#45627f}.h{font:700 19px Arial,sans-serif;fill:#14263f}
+      .t{font:15px Arial,sans-serif;fill:#42566d}.small{font:14px Arial,sans-serif;fill:#52647a}
+      .line{stroke:#355b85;stroke-width:3;fill:none;marker-end:url(#arrow)}
+      .dash{stroke:#7b91a9;stroke-width:2.5;stroke-dasharray:8 7;fill:none;marker-end:url(#arrow)}
+      .orange{stroke:#e87922;stroke-width:3;fill:none;marker-end:url(#arrowOrange)}
+    </style>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <text x="80" y="70" class="title">OpsPilot — Autonomous Incident Detection &amp; Recovery</text>
+  <text x="80" y="105" class="sub">Reusable reference architecture • AWS Region: configurable • No deployment-specific identifiers</text>
+
+  <rect x="55" y="140" width="1490" height="610" rx="24" fill="#fff" stroke="#c9d5e3" stroke-width="2"/>
+  <text x="80" y="175" class="lane">AWS CLOUD</text>
+
+  <!-- Monitoring path -->
+  <rect x="90" y="225" width="240" height="145" rx="18" fill="#fff7ed" stroke="#e87922" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="135" cy="270" r="25" fill="#e87922"/><text x="135" y="277" text-anchor="middle" font-family="Arial" font-weight="700" font-size="20" fill="white">EC2</text>
+  <text x="175" y="265" class="h">Demo workload</text><text x="175" y="292" class="t">demo-api service</text>
+  <text x="115" y="335" class="small">systemd timer checks /health</text>
+
+  <rect x="400" y="225" width="235" height="145" rx="18" fill="#eff8ff" stroke="#3b82b5" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="445" cy="270" r="25" fill="#3b82b5"/><text x="445" y="277" text-anchor="middle" font-family="Arial" font-weight="700" font-size="17" fill="white">CW</text>
+  <text x="485" y="265" class="h">CloudWatch</text><text x="485" y="292" class="t">Custom health metric</text>
+  <text x="425" y="335" class="small">Alarm detects unhealthy state</text>
+
+  <rect x="705" y="225" width="220" height="145" rx="18" fill="#f4efff" stroke="#7c5cc4" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="750" cy="270" r="25" fill="#7c5cc4"/><text x="750" y="277" text-anchor="middle" font-family="Arial" font-weight="700" font-size="17" fill="white">EB</text>
+  <text x="790" y="265" class="h">EventBridge</text><text x="790" y="292" class="t">Alarm-state event</text>
+  <text x="730" y="335" class="small">Routes incident automatically</text>
+
+  <rect x="995" y="225" width="220" height="145" rx="18" fill="#fff3f7" stroke="#c94f7c" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="1040" cy="270" r="25" fill="#c94f7c"/><text x="1040" y="277" text-anchor="middle" font-family="Arial" font-weight="700" font-size="15" fill="white">λ</text>
+  <text x="1080" y="265" class="h">AWS Lambda</text><text x="1080" y="292" class="t">Incident trigger</text>
+  <text x="1020" y="335" class="small">Starts a scoped SSM command</text>
+
+  <rect x="1285" y="225" width="220" height="145" rx="18" fill="#effbf5" stroke="#2e9566" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="1330" cy="270" r="25" fill="#2e9566"/><text x="1330" y="277" text-anchor="middle" font-family="Arial" font-weight="700" font-size="14" fill="white">SSM</text>
+  <text x="1370" y="265" class="h">Run Command</text><text x="1370" y="292" class="t">Targeted execution</text>
+  <text x="1310" y="335" class="small">Designated instance only</text>
+
+  <path d="M330 297 H400" class="line"/><path d="M635 297 H705" class="line"/><path d="M925 297 H995" class="line"/><path d="M1215 297 H1285" class="line"/>
+  <text x="342" y="282" class="small">metric</text><text x="647" y="282" class="small">alarm</text><text x="937" y="282" class="small">event</text><text x="1222" y="282" class="small">command</text>
+
+  <!-- Agent path -->
+  <rect x="1080" y="475" width="325" height="170" rx="20" fill="#f4f8fc" stroke="#355b85" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="1110" y="515" class="h">Strands Agent on EC2</text>
+  <text x="1110" y="550" class="t">1. Inspect service status</text><text x="1110" y="578" class="t">2. Read recent system logs</text>
+  <text x="1110" y="606" class="t">3. Diagnose from evidence</text><text x="1110" y="634" class="t">4. Invoke approved tools</text>
+
+  <rect x="650" y="475" width="300" height="170" rx="20" fill="#fff7ed" stroke="#e87922" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="680" y="515" class="h">Amazon Bedrock</text>
+  <text x="680" y="550" class="t">Foundation-model reasoning</text><text x="680" y="580" class="t">Evidence-based diagnosis</text>
+  <text x="680" y="610" class="t">Structured incident report</text>
+
+  <path d="M1285 370 C1285 420 1240 430 1240 475" class="line"/>
+  <path d="M1080 545 H950" class="orange"/><path d="M950 585 H1080" class="orange"/>
+  <text x="972" y="526" class="small">prompt + evidence</text><text x="975" y="615" class="small">reasoned decision</text>
+
+  <path d="M1080 620 C930 710 490 720 280 370" class="dash"/>
+  <text x="550" y="690" class="small">policy-approved restart → HTTP /health verification → healthy metric</text>
+
+  <!-- Safety boundary -->
+  <rect x="55" y="785" width="1490" height="165" rx="22" fill="#12233f"/>
+  <text x="85" y="825" font-family="Arial" font-weight="700" font-size="18" letter-spacing="1" fill="#ffb35c">DETERMINISTIC SAFETY BOUNDARY</text>
+  <line x1="445" y1="820" x2="445" y2="920" stroke="#49627f"/>
+  <line x1="825" y1="820" x2="825" y2="920" stroke="#49627f"/>
+  <line x1="1185" y1="820" x2="1185" y2="920" stroke="#49627f"/>
+  <text x="85" y="865" font-family="Arial" font-weight="700" font-size="18" fill="white">Approved target only</text>
+  <text x="85" y="895" font-family="Arial" font-size="15" fill="#c7d5e5">Unknown services are denied</text>
+  <text x="475" y="865" font-family="Arial" font-weight="700" font-size="18" fill="white">Approved action only</text>
+  <text x="475" y="895" font-family="Arial" font-size="15" fill="#c7d5e5">Restart; no arbitrary shell access</text>
+  <text x="855" y="865" font-family="Arial" font-weight="700" font-size="18" fill="white">Evidence required</text>
+  <text x="855" y="895" font-family="Arial" font-size="15" fill="#c7d5e5">Unknown root cause stays unknown</text>
+  <text x="1215" y="865" font-family="Arial" font-weight="700" font-size="18" fill="white">Recovery verified</text>
+  <text x="1215" y="895" font-family="Arial" font-size="15" fill="#c7d5e5">Resolved only after HTTP 200</text>
+</svg>

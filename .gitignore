@@ -1,0 +1,29 @@
+# Python virtual environments
+.venv/
+venv/
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.aws/
+
+# Generated AWS output and deployment packages
+bedrock-quotas.json
+*.zip
+
+# Temporary review and log files
+repo-review.txt
+*.log
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
