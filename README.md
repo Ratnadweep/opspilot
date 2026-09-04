@@ -66,31 +66,31 @@ OpsPilot uses deterministic controls around the model:
 
 ```text
 opspilot-agent/
-â”œâ”€â”€ agent.py
-â”œâ”€â”€ lambda_function.py
-â”œâ”€â”€ requirements.txt
-â”œâ”€â”€ .env.example
-â”œâ”€â”€ demo-app/
-â”‚   â””â”€â”€ app.py
-â”œâ”€â”€ docs/
-â”‚   â”œâ”€â”€ opspilot-architecture.png
-â”‚   â””â”€â”€ opspilot-architecture.svg
-â”œâ”€â”€ infrastructure/
-â”‚   â””â”€â”€ iam/
-â”‚       â”œâ”€â”€ cloudwatch-policy.example.json
-â”‚       â”œâ”€â”€ ec2-agent-ssm-policy.example.json
-â”‚       â””â”€â”€ lambda-ssm-policy.example.json
-â”œâ”€â”€ monitoring/
-â”‚   â””â”€â”€ publish_health_metric.sh
-â”œâ”€â”€ scripts/
-â”‚   â””â”€â”€ list_models.py
-â”œâ”€â”€ systemd/
-â”‚   â”œâ”€â”€ demo-api.service
-â”‚   â”œâ”€â”€ opspilot-health.service
-â”‚   â””â”€â”€ opspilot-health.timer
-â””â”€â”€ tests/
-    â”œâ”€â”€ test_policy.py
-    â””â”€â”€ test_ssm.py
+├── agent.py
+├── lambda_function.py
+├── requirements.txt
+├── .env.example
+├── demo-app/
+│   └── app.py
+├── docs/
+│   ├── opspilot-architecture.png
+│   └── opspilot-architecture.svg
+├── infrastructure/
+│   └── iam/
+│       ├── cloudwatch-policy.example.json
+│       ├── ec2-agent-ssm-policy.example.json
+│       └── lambda-ssm-policy.example.json
+├── monitoring/
+│   └── publish_health_metric.sh
+├── scripts/
+│   └── list_models.py
+├── systemd/
+│   ├── demo-api.service
+│   ├── opspilot-health.service
+│   └── opspilot-health.timer
+└── tests/
+    ├── test_policy.py
+    └── test_ssm.py
 ```
 
 ## Prerequisites
@@ -169,6 +169,24 @@ systemctl is-active opspilot-health.timer
 ```
 
 ## Deploy the Lambda Trigger
+
+### Recommended: deploy the automation control plane with CloudFormation
+
+For a new deployment using an existing EC2 instance, the included template creates the CloudWatch alarm, EventBridge rule, Lambda function, Lambda execution role, scoped SSM policy, EventBridge target, and Lambda invocation permission:
+
+```powershell
+.\scripts\deploy-automation.ps1 -InstanceId i-xxxxxxxxxxxxxxxxx
+```
+
+The template is located at:
+
+```text
+infrastructure/cloudformation/opspilot-automation.yaml
+```
+
+Use unique `LambdaFunctionName`, `AlarmName`, or `EventRuleName` parameter values if resources with the defaults already exist. The EC2 workload, agent, health publisher, systemd units, EC2 instance profile, and Bedrock access must be installed first as described above.
+
+### Manual Lambda update
 
 Create the Lambda deployment package:
 

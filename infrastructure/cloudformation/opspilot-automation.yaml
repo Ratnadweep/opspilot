@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  OpsPilot automation control plane: CloudWatch alarm, EventBridge routing,
+  Lambda trigger, and least-privilege SSM permission for an existing EC2 instance.
+
+Parameters:
+  EC2InstanceId:
+    Type: AWS::EC2::Instance::Id
+    Description: Existing EC2 instance that hosts demo-api and the OpsPilot agent.
+
+  LambdaFunctionName:
+    Type: String
+    Default: OpsPilotAlarmHandler
+    AllowedPattern: "[A-Za-z0-9-_]+"
+
+  AlarmName:
+    Type: String
+    Default: OpsPilot-DemoApi-Unhealthy
+
+  EventRuleName:
+    Type: String
+    Default: OpsPilot-Unhealthy-Rule
+
+Resources:
+  OpsPilotLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Allows the OpsPilot alarm handler to log and launch the agent through SSM.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: OpsPilotScopedSSMSendCommand
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EC2InstanceId}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript
+
+  OpsPilotAlarmHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Description: Launches the OpsPilot Strands agent when the demo health alarm enters ALARM.
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 3
+      Role: !GetAtt OpsPilotLambdaRole.Arn
+      Environment:
+        Variables:
+          OPSPILOT_INSTANCE_ID: !Ref EC2InstanceId
+      Code:
+        ZipFile: |
+          import json
+          import os
+
+          import boto3
+
+
+          REGION = os.getenv("AWS_REGION", "us-east-1")
+          INSTANCE_ID = os.environ["OPSPILOT_INSTANCE_ID"]
+          ssm = boto3.client("ssm", region_name=REGION)
+
+
+          def lambda_handler(event, context):
+              print("OpsPilot received CloudWatch alarm event:")
+              print(json.dumps(event))
+
+              command = (
+                  f"OPSPILOT_INSTANCE_ID={INSTANCE_ID} "
+                  "/home/ec2-user/opspilot-venv/bin/python "
+                  "/home/ec2-user/agent.py "
+                  "> /tmp/opspilot-agent.log 2>&1"
+              )
+
+              response = ssm.send_command(
+                  InstanceIds=[INSTANCE_ID],
+                  DocumentName="AWS-RunShellScript",
+                  Parameters={"commands": [command]},
+              )
+
+              command_id = response["Command"]["CommandId"]
+              print(f"OpsPilot agent launched through SSM: {command_id}")
+
+              return {"statusCode": 200, "commandId": command_id}
+
+  DemoApiHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Ref AlarmName
+      AlarmDescription: Triggers when demo-api health drops below 1
+      Namespace: OpsPilot
+      MetricName: DemoApiHealth
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      ActionsEnabled: true
+
+  OpsPilotUnhealthyRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Ref EventRuleName
+      Description: Triggers OpsPilot when the demo-api CloudWatch alarm enters ALARM state
+      State: ENABLED
+      EventBusName: default
+      EventPattern:
+        source:
+          - aws.cloudwatch
+        detail-type:
+          - CloudWatch Alarm State Change
+        detail:
+          alarmName:
+            - !Ref AlarmName
+          state:
+            value:
+              - ALARM
+      Targets:
+        - Id: OpsPilotAlarmHandlerTarget
+          Arn: !GetAtt OpsPilotAlarmHandler.Arn
+
+  AllowEventBridgeInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OpsPilotAlarmHandler
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt OpsPilotUnhealthyRule.Arn
+
+Outputs:
+  AlarmName:
+    Value: !Ref DemoApiHealthAlarm
+
+  EventRuleArn:
+    Value: !GetAtt OpsPilotUnhealthyRule.Arn
+
+  LambdaFunctionArn:
+    Value: !GetAtt OpsPilotAlarmHandler.Arn
+
+  LambdaRoleArn:
+    Value: !GetAtt OpsPilotLambdaRole.Arn
