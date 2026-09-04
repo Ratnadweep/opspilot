@@ -1,7 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   OpsPilot automation control plane: CloudWatch alarm, EventBridge routing,
-  Lambda trigger, and least-privilege SSM permission for an existing EC2 instance.
+  Lambda trigger, SNS incident notifications, and least-privilege permissions
+  for an existing EC2 instance.
 
 Parameters:
   EC2InstanceId:
@@ -20,6 +21,23 @@ Parameters:
   EventRuleName:
     Type: String
     Default: OpsPilot-Unhealthy-Rule
+
+  EC2RoleName:
+    Type: String
+    Default: OpsPilotEC2SSMRole
+    Description: Name of the IAM role attached to the existing OpsPilot EC2 instance.
+
+  NotificationTopicName:
+    Type: String
+    Default: OpsPilotIncidentNotifications
+
+  NotificationEmail:
+    Type: String
+    Default: ""
+    Description: Optional email endpoint. The recipient must confirm the SNS subscription.
+
+Conditions:
+  HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
 
 Resources:
   OpsPilotLambdaRole:
@@ -46,6 +64,33 @@ Resources:
                   - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EC2InstanceId}
                   - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript
 
+  OpsPilotIncidentTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref NotificationTopicName
+      DisplayName: OpsPilot
+
+  OpsPilotEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasNotificationEmail
+    Properties:
+      TopicArn: !Ref OpsPilotIncidentTopic
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
+
+  OpsPilotEC2SNSPublishPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: OpsPilotAgentSNSPolicy
+      Roles:
+        - !Ref EC2RoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: sns:Publish
+            Resource: !Ref OpsPilotIncidentTopic
+
   OpsPilotAlarmHandler:
     Type: AWS::Lambda::Function
     Properties:
@@ -61,6 +106,7 @@ Resources:
       Environment:
         Variables:
           OPSPILOT_INSTANCE_ID: !Ref EC2InstanceId
+          OPSPILOT_SNS_TOPIC_ARN: !Ref OpsPilotIncidentTopic
       Code:
         ZipFile: |
           import json
@@ -71,6 +117,7 @@ Resources:
 
           REGION = os.getenv("AWS_REGION", "us-east-1")
           INSTANCE_ID = os.environ["OPSPILOT_INSTANCE_ID"]
+          SNS_TOPIC_ARN = os.getenv("OPSPILOT_SNS_TOPIC_ARN")
           ssm = boto3.client("ssm", region_name=REGION)
 
 
@@ -78,8 +125,12 @@ Resources:
               print("OpsPilot received CloudWatch alarm event:")
               print(json.dumps(event))
 
+              environment = f"OPSPILOT_INSTANCE_ID={INSTANCE_ID}"
+              if SNS_TOPIC_ARN:
+                  environment += f" OPSPILOT_SNS_TOPIC_ARN={SNS_TOPIC_ARN}"
+
               command = (
-                  f"OPSPILOT_INSTANCE_ID={INSTANCE_ID} "
+                  f"{environment} "
                   "/home/ec2-user/opspilot-venv/bin/python "
                   "/home/ec2-user/agent.py "
                   "> /tmp/opspilot-agent.log 2>&1"
@@ -154,3 +205,6 @@ Outputs:
 
   LambdaRoleArn:
     Value: !GetAtt OpsPilotLambdaRole.Arn
+
+  NotificationTopicArn:
+    Value: !Ref OpsPilotIncidentTopic

@@ -23,7 +23,8 @@ The goal is not to give an LLM unrestricted infrastructure access. The goal is t
 7. It separates the observed failure condition from the underlying root cause and refuses to guess when evidence is insufficient.
 8. A deterministic policy permits only the approved restart of `demo-api`.
 9. The agent verifies the application through `http://localhost:8000/health`.
-10. The next healthy metric returns the CloudWatch alarm to `OK`.
+10. Amazon SNS delivers the structured incident report to the subscribed engineer.
+11. The next healthy metric returns the CloudWatch alarm to `OK`.
 
 ## Core Agent Tools
 
@@ -61,6 +62,7 @@ OpsPilot uses deterministic controls around the model:
 - IAM least-privilege policies
 - Python and Bash
 - `systemd`
+- Amazon SNS
 
 ## Repository Structure
 
@@ -76,13 +78,17 @@ opspilot-agent/
 │   ├── opspilot-architecture.png
 │   └── opspilot-architecture.svg
 ├── infrastructure/
+│   ├── cloudformation/
+│   │   └── opspilot-automation.yaml
 │   └── iam/
 │       ├── cloudwatch-policy.example.json
 │       ├── ec2-agent-ssm-policy.example.json
+│       ├── ec2-agent-sns-policy.example.json
 │       └── lambda-ssm-policy.example.json
 ├── monitoring/
 │   └── publish_health_metric.sh
 ├── scripts/
+│   ├── deploy-automation.ps1
 │   └── list_models.py
 ├── systemd/
 │   ├── demo-api.service
@@ -114,6 +120,7 @@ cp .env.example .env
 ```text
 AWS_REGION=us-east-1
 OPSPILOT_INSTANCE_ID=i-xxxxxxxxxxxxxxxxx
+OPSPILOT_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:OpsPilotIncidentNotifications
 ```
 
 Do not commit `.env`. It is excluded by `.gitignore`.
@@ -175,16 +182,16 @@ systemctl is-active opspilot-health.timer
 For a new deployment using an existing EC2 instance, the included template creates the CloudWatch alarm, EventBridge rule, Lambda function, Lambda execution role, scoped SSM policy, EventBridge target, and Lambda invocation permission:
 
 ```powershell
-.\scripts\deploy-automation.ps1 -InstanceId i-xxxxxxxxxxxxxxxxx
+.\scripts\deploy-automation.ps1 -InstanceId i-xxxxxxxxxxxxxxxxx -NotificationEmail you@example.com
 ```
 
-The template is located at:
+The optional email recipient must confirm the subscription message sent by AWS before notifications can be delivered. The template is located at:
 
 ```text
 infrastructure/cloudformation/opspilot-automation.yaml
 ```
 
-Use unique `LambdaFunctionName`, `AlarmName`, or `EventRuleName` parameter values if resources with the defaults already exist. The EC2 workload, agent, health publisher, systemd units, EC2 instance profile, and Bedrock access must be installed first as described above.
+Use unique `LambdaFunctionName`, `AlarmName`, `EventRuleName`, or `NotificationTopicName` parameter values if resources with the defaults already exist. The EC2 workload, agent, health publisher, systemd units, EC2 instance profile, and Bedrock access must be installed first as described above.
 
 ### Manual Lambda update
 
@@ -194,10 +201,10 @@ Create the Lambda deployment package:
 Compress-Archive -Path .\lambda_function.py -DestinationPath .\opspilot-lambda.zip -Force
 ```
 
-Configure the Lambda environment variable:
+Configure the Lambda environment variables:
 
 ```powershell
-aws lambda update-function-configuration --function-name OpsPilotAlarmHandler --environment "Variables={OPSPILOT_INSTANCE_ID=i-xxxxxxxxxxxxxxxxx}"
+aws lambda update-function-configuration --function-name OpsPilotAlarmHandler --environment "Variables={OPSPILOT_INSTANCE_ID=i-xxxxxxxxxxxxxxxxx,OPSPILOT_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:OpsPilotIncidentNotifications}"
 ```
 
 Upload the function code:
@@ -248,13 +255,14 @@ Expected outcome:
 - The root cause remains `unknown` unless supported by evidence.
 - The policy-approved restart succeeds.
 - Verification reports HTTP `200`.
+- Amazon SNS delivers the structured report to the confirmed email subscriber.
 - The CloudWatch alarm returns to `OK` after the next healthy metric.
 
 ## Current Scope
 
 OpsPilot is a focused hackathon prototype built around one service and one bounded remediation action. It intentionally avoids unnecessary orchestration layers and databases so the agent behavior, evidence trail, and safety model remain easy to understand and demonstrate.
 
-Possible future extensions include human approval for higher-risk actions, notifications, additional allowlisted runbooks, persistent incident history, and deployment through infrastructure as code.
+Possible future extensions include human approval for higher-risk actions, additional allowlisted runbooks, persistent incident history, and an optional AgentCore deployment profile.
 
 ## License
 

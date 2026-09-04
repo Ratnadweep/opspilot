@@ -8,8 +8,10 @@ from strands.models.openai_responses import OpenAIResponsesModel
 
 REGION = os.getenv("AWS_REGION", "us-east-1")
 INSTANCE_ID = os.environ["OPSPILOT_INSTANCE_ID"]
+SNS_TOPIC_ARN = os.getenv("OPSPILOT_SNS_TOPIC_ARN")
 
 ssm = boto3.client("ssm", region_name=REGION)
+sns = boto3.client("sns", region_name=REGION)
 
 
 def run_ssm_command(command: str) -> dict:
@@ -161,7 +163,7 @@ agent = Agent(
 )
 
 if __name__ == "__main__":
-    agent(
+    result = agent(
     "Investigate the unhealthy demo application. "
     "Use get_service_status and get_recent_logs before taking remediation action. "
     "Base every conclusion strictly on tool evidence. "
@@ -183,3 +185,22 @@ if __name__ == "__main__":
     "Report: initial state, failure condition, relevant evidence, underlying root cause, "
     "root-cause confidence, remediation action, verification result, and final incident status."
 )
+
+    incident_report = str(result)
+
+    if SNS_TOPIC_ARN:
+        try:
+            notification = sns.publish(
+                TopicArn=SNS_TOPIC_ARN,
+                Subject="OpsPilot Incident Report",
+                Message=incident_report,
+            )
+            print(
+                "\nIncident notification published to SNS. "
+                f"MessageId: {notification['MessageId']}"
+            )
+        except Exception as error:
+            print(
+                "\nWARNING: Incident processing completed, but the optional "
+                f"SNS notification failed: {error}"
+            )

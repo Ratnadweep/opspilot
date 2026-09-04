@@ -3,7 +3,11 @@ param(
     [ValidatePattern('^i-[0-9a-f]+$')]
     [string]$InstanceId,
 
-    [string]$StackName = "OpsPilotAutomation"
+    [string]$StackName = "OpsPilotAutomation",
+
+    [string]$EC2RoleName = "OpsPilotEC2SSMRole",
+
+    [string]$NotificationEmail = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,10 +19,19 @@ Write-Host "Validating OpsPilot CloudFormation template..."
 aws cloudformation validate-template --template-body "file://$($ResolvedTemplatePath.Replace('\', '/'))" | Out-Null
 
 Write-Host "Deploying stack '$StackName'..."
+$ParameterOverrides = @(
+    "EC2InstanceId=$InstanceId"
+    "EC2RoleName=$EC2RoleName"
+)
+
+if ($NotificationEmail) {
+    $ParameterOverrides += "NotificationEmail=$NotificationEmail"
+}
+
 aws cloudformation deploy `
     --template-file $ResolvedTemplatePath `
     --stack-name $StackName `
-    --parameter-overrides "EC2InstanceId=$InstanceId" `
+    --parameter-overrides $ParameterOverrides `
     --capabilities CAPABILITY_IAM `
     --no-fail-on-empty-changeset
 

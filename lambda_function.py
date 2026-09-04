@@ -4,6 +4,7 @@ import boto3
 
 REGION = os.getenv("AWS_REGION", "us-east-1")
 INSTANCE_ID = os.environ["OPSPILOT_INSTANCE_ID"]
+SNS_TOPIC_ARN = os.getenv("OPSPILOT_SNS_TOPIC_ARN")
 
 ssm = boto3.client("ssm", region_name=REGION)
 
@@ -11,8 +12,13 @@ def lambda_handler(event, context):
     print("OpsPilot received CloudWatch alarm event:")
     print(json.dumps(event))
 
+    environment = f"OPSPILOT_INSTANCE_ID={INSTANCE_ID}"
+
+    if SNS_TOPIC_ARN:
+        environment += f" OPSPILOT_SNS_TOPIC_ARN={SNS_TOPIC_ARN}"
+
     command = (
-	f"OPSPILOT_INSTANCE_ID={INSTANCE_ID} "
+	f"{environment} "
         "/home/ec2-user/opspilot-venv/bin/python "
         "/home/ec2-user/agent.py "
         "> /tmp/opspilot-agent.log 2>&1"
